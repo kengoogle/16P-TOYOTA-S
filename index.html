@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Wild and Smile Puzzle</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            touch-action: manipulation;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(to bottom, #87CEEB, #4682B4);
+            overflow: hidden;
+        }
+        .container {
+            width: 90%;
+            max-width: 400px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .tile {
+            width: 100%;
+            aspect-ratio: 1;
+            font-size: 5vw;
+            font-weight: bold;
+            background: linear-gradient(to bottom, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: transform 0.5s linear;
+        }
+        .empty {
+            background: #ccc;
+        }
+        #startButton {
+            width: 100%;
+            padding: 15px;
+            font-size: 5vw;
+            background-color: #008CBA;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .cloud {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            opacity: 0.7;
+        }
+        .cloud:before, .cloud:after {
+            content: '';
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+        }
+        .cloud1 { width: 100px; height: 30px; top: 10%; left: -100px; animation: moveCloud 30s linear infinite; }
+        .cloud1:before { width: 40px; height: 40px; top: -20px; left: 10px; }
+        .cloud1:after { width: 60px; height: 60px; top: -30px; right: 10px; }
+        .cloud2 { width: 80px; height: 25px; top: 30%; left: -80px; animation: moveCloud 25s linear infinite; animation-delay: -10s; }
+        .cloud2:before { width: 32px; height: 32px; top: -16px; left: 8px; }
+        .cloud2:after { width: 48px; height: 48px; top: -24px; right: 8px; }
+        @keyframes moveCloud {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(400%); }
+        }
+    </style>
+</head>
+<body>
+    <div class="cloud cloud1"></div>
+    <div class="cloud cloud2"></div>
+    <div class="container">
+        <h1 style="font-size: 7vw;">Wild and Smile</h1>
+        <p style="font-size: 4vw;">天気が良い日は外へ出よう！</p>
+        <div id="puzzle" class="grid"></div>
+        <button id="startButton">スタート</button>
+        <p id="message" style="font-size: 5vw; font-weight: bold; color: #4CAF50;"></p>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const characters = ['ト', 'ヨ', 'タ', '白', '川', '郷', '自', '然', '学', '校', 'で', '心', 'の', '洗', '濯', ''];
+        let tiles = [...characters];
+        let isStarted = false;
+        let movingTile = null;
+        let audioContext;
+
+        function createPuzzle() {
+            const puzzle = document.getElementById('puzzle');
+            puzzle.innerHTML = '';
+            tiles.forEach((char, index) => {
+                const tile = document.createElement('button');
+                tile.className = 'tile' + (char === '' ? ' empty' : '');
+                tile.textContent = char;
+                tile.ontouchstart = (e) => {
+                    e.preventDefault();
+                    moveTile(index);
+                };
+                puzzle.appendChild(tile);
+            });
+        }
+
+        function shuffleTiles() {
+            for (let i = tiles.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [tiles[i], tiles[j]] = [tiles[j], tiles[i]];
+            }
+            isStarted = true;
+            createPuzzle();
+            document.getElementById('startButton').style.display = 'none';
+        }
+
+        function moveTile(index) {
+            if (!isStarted) return;
+            const emptyIndex = tiles.indexOf('');
+            if (isAdjacent(index, emptyIndex)) {
+                const tile = document.getElementsByClassName('tile')[index];
+                const emptyTile = document.getElementsByClassName('tile')[emptyIndex];
+                const rect = tile.getBoundingClientRect();
+                const emptyRect = emptyTile.getBoundingClientRect();
+                const dx = emptyRect.left - rect.left;
+                const dy = emptyRect.top - rect.top;
+
+                movingTile = {tile, dx, dy, startTime: performance.now()};
+                requestAnimationFrame(animateTile);
+
+                [tiles[index], tiles[emptyIndex]] = [tiles[emptyIndex], tiles[index]];
+                
+                setTimeout(() => {
+                    if (isSolved()) {
+                        document.getElementById('message').textContent = 'おめでとう、さあ楽しもう';
+                        setTimeout(() => {
+                            window.location.href = 'https://toyota.eco-inst.jp/';
+                        }, 5000);
+                    }
+                }, 500);
+            }
+        }
+
+        function animateTile(currentTime) {
+            if (!movingTile) return;
+            const elapsed = currentTime - movingTile.startTime;
+            const duration = 500; // 0.5 seconds
+            const progress = Math.min(elapsed / duration, 1);
+            
+            const x = movingTile.dx * progress;
+            const y = movingTile.dy * progress;
+            
+            movingTile.tile.style.transform = `translate(${x}px, ${y}px)`;
+            
+            if (progress < 1) {
+                requestAnimationFrame(animateTile);
+            } else {
+                movingTile.tile.style.transform = '';
+                movingTile = null;
+                createPuzzle();
+                playMoveSound();
+            }
+        }
+
+        function isAdjacent(index1, index2) {
+            const row1 = Math.floor(index1 / 4);
+            const col1 = index1 % 4;
+            const row2 = Math.floor(index2 / 4);
+            const col2 = index2 % 4;
+            return (Math.abs(row1 - row2) === 1 && col1 === col2) ||
+                   (Math.abs(col1 - col2) === 1 && row1 === row2);
+        }
+
+        function isSolved() {
+            return tiles.slice(0, -1).every((char, index) => char === characters[index]);
+        }
+
+        function playMoveSound() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.type = 'sine';
+            oscillator.frequency.setValueAtTime(440, audioContext.currentTime); // 440 Hz
+            
+            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.1);
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.1);
+        }
+
+        document.getElementById('startButton').ontouchstart = (e) => {
+            e.preventDefault();
+            shuffleTiles();
+        };
+        createPuzzle();
+    });
+    </script>
+</body>
+</html>
